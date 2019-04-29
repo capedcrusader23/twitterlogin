@@ -59,8 +59,7 @@ router.route('/twitter/redirect2')
       }
 
       var jsonStr = '{ "' + body.replace(/&/g, '", "').replace(/=/g, '": "') + '"}';
-      res.send(JSON.parse(jsonStr));
-      console.log(JSON.parse(jsonStr))
+      res.send(JSON.parse(jsonStr))
     });
   });
 
@@ -82,7 +81,6 @@ router.route('/twitter/redirect2')
         }
         const bodyString = '{ "' + body.replace(/&/g, '", "').replace(/=/g, '": "') + '"}';
         const parsedBody = JSON.parse(bodyString);
-
         req.body['oauth_token'] = parsedBody.oauth_token;
         req.body['oauth_token_secret'] = parsedBody.oauth_token_secret;
         req.body['user_id'] = parsedBody.user_id;
@@ -97,7 +95,6 @@ router.route('/twitter/redirect2')
         };
 return next();
 },generateToken,sendToken);
-
 var authenticate = expressJwt({
   secret: 'capedcrusader',
   requestProperty: 'auth',
@@ -108,7 +105,6 @@ var authenticate = expressJwt({
     return null;
   }
 });
-
 var getCurrentUser = function(req, res, next) {
   User.findById(req.auth.id, function(err, user) {
     if (err) {
@@ -119,7 +115,6 @@ var getCurrentUser = function(req, res, next) {
     }
   });
 };
-
 var getOne=function(req, res)
 {
 var user=req.user.toObject();
@@ -127,7 +122,48 @@ delete user['twitterProvider'];
 delete user['__v'];
 res.json(user);
 };
-router.get('/twitter/redirect',authenticate,getCurrentUser,getOne);
+router.get('/twitter/redirect',(req,res)=>{
+  res.send(req.headers)
+});
+router.get('/',(req,res)=>{
+  console.log("HELLO")
+})
+let getUserWithToken = function (req, res, next) {
 
-
+    User.findById(req.auth.id, {"email": 1, "twitterProvider": 1}, function (err, user) {
+        if (err) {
+            next(err);
+        } else {
+            req.user = user;
+            next();
+        }
+    });
+};
+router.route('/tweets').get(authenticate, getUserWithToken, function (req, res, next) {
+        let user = req.user;
+        let id = user.twitterProvider.id;
+        let token = user.twitterProvider.token;
+        let tokenSecret = user.twitterProvider.tokenSecret;
+        var apiUrl = "https://api.twitter.com/1.1/statuses/user_timeline.json" + "?"+ qs.stringify({user_id: id, count: 100});
+var authenticationData = {
+consumer_key:twitterConfig.consumerKey,
+consumer_secret:twitterConfig.consumerSecret,
+token:token,
+token_secret:tokenSecret
+};
+request.get({url: apiUrl, oauth: authenticationData,json: true},function(err,r,body)
+{
+if(err)
+{
+return res.send(500, {message: err.message});
+}
+var tweets = [];
+for (let i in body) {
+var tweetObj = body[i];
+tweets.push(tweetObj.text);
+}
+res.json(tweets);
+});
+});
+app.use(router);
 app.listen(1111);
